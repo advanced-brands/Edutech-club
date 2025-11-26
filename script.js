@@ -112,3 +112,61 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+
+// ...existing code...
+
+document.addEventListener('DOMContentLoaded', () => {
+  const easeOutQuad = t => t * (2 - t);
+
+  function animateCount(el, start, end, duration = 1500) {
+    let startTime = null;
+    const suffix = el.dataset.suffix || '';
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = easeOutQuad(progress);
+      const current = Math.floor(start + (end - start) * eased);
+      el.textContent = current.toLocaleString() + suffix;
+      if (progress < 1) requestAnimationFrame(step);
+      else {
+        el.textContent = end.toLocaleString() + suffix;
+        el.dataset.animated = 'true';
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Prepare elements: extract numeric target and suffix (e.g. "2500+")
+  const nums = document.querySelectorAll('.impact-numbers .num, .numbers-wrap .num');
+  nums.forEach(el => {
+    const raw = el.textContent.trim();
+    const match = raw.match(/[\d,]+/);
+    const target = match ? parseInt(match[0].replace(/,/g, ''), 10) : 0;
+    const suffix = raw.replace(match ? match[0] : '', '').trim() || '';
+    el.dataset.target = target;
+    el.dataset.suffix = suffix;
+    el.textContent = '0' + suffix;
+  });
+
+  // Trigger animation when section/element comes into view
+  const observer = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const container = entry.target;
+      // animate all numbers inside the container (or single element)
+      const targets = container.querySelectorAll('.num');
+      targets.forEach(el => {
+        if (el.dataset.animated === 'true') return;
+        const end = parseInt(el.dataset.target || '0', 10);
+        // small per-item stagger and slightly longer for bigger numbers
+        const duration = 1200 + Math.min(2000, end / 2);
+        animateCount(el, 0, end, duration);
+      });
+      obs.unobserve(container);
+    });
+  }, { threshold: 0.4 });
+
+  // Observe the section or wrapper that contains the numbers
+  const wrapper = document.querySelector('.impact-numbers') || document.querySelector('.numbers-wrap');
+  if (wrapper) observer.observe(wrapper);
+});
